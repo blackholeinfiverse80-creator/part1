@@ -82,6 +82,8 @@ async def root():
 @app.get("/system/health")
 async def system_health():
     """System health check with MongoDB and Noopur connectivity"""
+    from src.utils.insightflow import make_event
+    
     components = {}
     
     # SQLite database check
@@ -127,15 +129,26 @@ async def system_health():
     unhealthy_components = [k for k, v in components.items() if "unhealthy" in str(v) or "unreachable" in str(v)]
     overall_status = "degraded" if unhealthy_components else "healthy"
     
+    # Generate InsightFlow telemetry event
+    insightflow_event = make_event(
+        event_type="heartbeat",
+        component="core_integrator",
+        status=overall_status,
+        details=components
+    )
+    
     return {
         "status": overall_status,
         "components": components,
-        "timestamp": __import__('datetime').datetime.utcnow().isoformat() + 'Z'
+        "timestamp": __import__('datetime').datetime.utcnow().isoformat() + 'Z',
+        "insightflow_event": insightflow_event
     }
 
 @app.get("/system/diagnostics")
 async def system_diagnostics():
     """System diagnostics with module load status and integration readiness"""
+    from src.utils.insightflow import make_event
+    
     # Module load status
     module_load_status = {}
     for name, agent in gateway.agents.items():
@@ -203,6 +216,21 @@ async def system_diagnostics():
 
     readiness_reason = "all_checks_passed" if integration_ready else ";".join(failing_components) if failing_components else "unknown"
 
+    # Generate InsightFlow telemetry event
+    event_status = "healthy" if integration_ready else "degraded"
+    insightflow_event = make_event(
+        event_type="integration_ready" if integration_ready else "degraded_alert",
+        component="core_integrator",
+        status=event_status,
+        details={
+            "integration_checks": integration_checks,
+            "module_load_status": module_load_status,
+            "readiness_reason": readiness_reason
+        },
+        integration_score=integration_score,
+        failing_components=failing_components if failing_components else None
+    )
+
     return {
         "module_load_status": module_load_status,
         "integration_ready": integration_ready,
@@ -223,7 +251,8 @@ async def system_diagnostics():
             "nonce_store_enabled": nonce_db_exists,
             "sspl_middleware": SSPL_ENABLED
         },
-        "version": "1.0.0"
+        "version": "1.0.0",
+        "insightflow_event": insightflow_event
     }
 
 @app.post("/feedback")

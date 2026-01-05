@@ -7,10 +7,10 @@ FastAPI-based orchestration platform with SSPL Phase III security, multi-databas
 - **SSPL Phase III Security**: Ed25519 signatures, nonce replay protection, timestamp validation
 - **Multi-Database Support**: MongoDB Atlas (primary), SQLite (fallback), Noopur integration
 - **Agent System**: Finance, Education, Creator modules with memory management
-- **Resilient HTTP Client**: Circuit breaker pattern, retry logic, timeout handling
+- **HTTP Communication**: Direct HTTP calls with timeout handling and error management
 - **Observability**: Health checks, diagnostics, logging endpoints
-- **InsightFlow Telemetry**: Structured event generator compatible with InsightFlow (heartbeats, degraded alerts, integration_ready signals)
-- **BridgeClient (Canonical)**: `BridgeClient` v1.0.0 is the single, versioned integration surface for CreatorCore (generation, feedback, history, logs). All routing and Gateway flows must use it.
+- **InsightFlow Telemetry**: Structured event generator with heartbeats, degraded alerts, and integration_ready signals
+- **BridgeClient Library**: Available HTTP client for CreatorCore integration (optional utility)
 - **Deterministic Feedback Mapping**: Generation lifecycle mapping (generation_id → interaction) persisted in memory for guaranteed feedback retrieval and replay.
 - **Testing Suite**: Security validation, database testing, comprehensive coverage
 
@@ -93,9 +93,11 @@ When security is enabled, all requests to `/core` require:
 - `src/core/gateway.py` - Central routing and processing
 - `src/db/memory.py` - SQLite memory adapter
 - `src/db/mongodb_adapter.py` - MongoDB Atlas adapter
-- `src/utils/resilient_client.py` - HTTP client with circuit breaker
 - `src/utils/noopur_client.py` - Noopur service integration
 - `src/utils/sspl.py` - Security validation
+- `src/utils/bridge_client.py` - CreatorCore HTTP client (optional utility)
+- `src/utils/insightflow.py` - Telemetry event generator
+- `src/utils/resilient_client.py` - HTTP client with circuit breaker (available but not used in main flow)
 - `security_client.py` - Security testing client
 
 ## Production Ready
@@ -103,12 +105,12 @@ When security is enabled, all requests to `/core` require:
 - ✅ Canonical feedback schema with validation
 - ✅ Deterministic health monitoring
 - ✅ Multi-database fallback (MongoDB → SQLite)
-- ✅ Resilient HTTP communication with circuit breaker
-- ✅ InsightFlow-compatible telemetry
+- ✅ Direct HTTP communication with timeout handling
+- ✅ Active InsightFlow telemetry integration
 - ✅ Comprehensive error handling and logging
 
 ## Monitoring & Observability
 - **Health Endpoint**: `/system/health` - Component status with external service checks
 - **Diagnostics Endpoint**: `/system/diagnostics` - Integration readiness and module status
-- **Structured Logging**: JSON format compatible with InsightFlow
+- **Structured Logging**: JSON format with InsightFlow telemetry events
 - **Integration Ready Signal**: Computed boolean from all system dependencies
