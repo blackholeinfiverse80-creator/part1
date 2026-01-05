@@ -8,6 +8,7 @@ from .feedback_models import CanonicalFeedbackSchema
 from ..db.memory import ContextMemory
 from ..db.memory_adapter import SQLiteAdapter, RemoteNoopurAdapter, MONGODB_AVAILABLE
 from ..utils.logger import setup_logger
+from ..utils.bridge_client import BridgeClient
 from config.config import DB_PATH, INTEGRATOR_USE_NOOPUR, USE_MONGODB, MONGODB_CONNECTION_STRING, MONGODB_DATABASE_NAME
 from pydantic import ValidationError
 
@@ -21,6 +22,12 @@ class Gateway:
     """Central gateway for routing requests to appropriate agents"""
     
     def __init__(self):
+        # Initialize logger first
+        self.logger = setup_logger(__name__)
+        
+        # Initialize BridgeClient as canonical external service interface
+        self.bridge_client = BridgeClient()
+        
         # Built-in agents (non-module agents)
         self.agents = {
             "finance": FinanceAgent(),
@@ -35,10 +42,7 @@ class Gateway:
             self.agents[name] = inst
         if errors:
             for e in errors:
-                self.logger = setup_logger(__name__)
                 self.logger.warning(f"Module loader issue: {e}")
-        # Initialize logger first
-        self.logger = setup_logger(__name__)
         
         # Memory adapter: MongoDB > Noopur > SQLite (priority order with fallback)
         if USE_MONGODB and MONGODB_AVAILABLE:
@@ -72,6 +76,21 @@ class Gateway:
         except Exception:
             pass
         return {}
+    
+    def check_external_service_health(self) -> Dict[str, Any]:
+        """Check external service health using BridgeClient"""
+        try:
+            health_result = self.bridge_client.health_check()
+            if health_result.get('success') is not False:
+                return {"status": "healthy", "details": health_result}
+            else:
+                return {
+                    "status": "unhealthy", 
+                    "error_type": health_result.get('error_type'),
+                    "details": health_result
+                }
+        except Exception as e:
+            return {"status": "unreachable", "error": str(e)}
     
     def validate_feedback(self, data: Dict[str, Any]) -> CanonicalFeedbackSchema:
         """Validate feedback data against canonical schema"""

@@ -10,7 +10,7 @@ FastAPI-based orchestration platform with SSPL Phase III security, multi-databas
 - **HTTP Communication**: Direct HTTP calls with timeout handling and error management
 - **Observability**: Health checks, diagnostics, logging endpoints
 - **InsightFlow Telemetry**: Structured event generator with heartbeats, degraded alerts, and integration_ready signals
-- **BridgeClient Library**: Available HTTP client for CreatorCore integration (optional utility)
+- **BridgeClient (Canonical)**: `BridgeClient` v1.0.0 is the single, versioned integration surface for CreatorCore. All gateway flows use it for external service communication.
 - **Deterministic Feedback Mapping**: Generation lifecycle mapping (generation_id → interaction) persisted in memory for guaranteed feedback retrieval and replay.
 - **Testing Suite**: Security validation, database testing, comprehensive coverage
 
@@ -95,7 +95,7 @@ When security is enabled, all requests to `/core` require:
 - `src/db/mongodb_adapter.py` - MongoDB Atlas adapter
 - `src/utils/noopur_client.py` - Noopur service integration
 - `src/utils/sspl.py` - Security validation
-- `src/utils/bridge_client.py` - CreatorCore HTTP client (optional utility)
+- `src/utils/bridge_client.py` - CreatorCore HTTP client (canonical integration surface)
 - `src/utils/insightflow.py` - Telemetry event generator
 - `src/utils/resilient_client.py` - HTTP client with circuit breaker (available but not used in main flow)
 - `security_client.py` - Security testing client
@@ -105,7 +105,7 @@ When security is enabled, all requests to `/core` require:
 - ✅ Canonical feedback schema with validation
 - ✅ Deterministic health monitoring
 - ✅ Multi-database fallback (MongoDB → SQLite)
-- ✅ Direct HTTP communication with timeout handling
+- ✅ BridgeClient canonical integration surface
 - ✅ Active InsightFlow telemetry integration
 - ✅ Comprehensive error handling and logging
 

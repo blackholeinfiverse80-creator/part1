@@ -107,20 +107,13 @@ async def system_health():
         except Exception as e:
             components["mongodb"] = f"unhealthy: {str(e)}"
     
-    # Noopur reachability check (if enabled)
-    from config.config import INTEGRATOR_USE_NOOPUR, NOOPUR_BASE_URL
+    # Noopur reachability check (if enabled) - use gateway's BridgeClient
+    from config.config import INTEGRATOR_USE_NOOPUR
     if INTEGRATOR_USE_NOOPUR:
-        try:
-            from src.utils.noopur_client import NoopurClient
-            noopur_client = NoopurClient(NOOPUR_BASE_URL)
-            # Simple connectivity test
-            result = noopur_client.session.get(f"{NOOPUR_BASE_URL}/health", timeout=3)
-            if result.status_code == 200:
-                components["noopur"] = "healthy"
-            else:
-                components["noopur"] = f"unhealthy: HTTP {result.status_code}"
-        except Exception as e:
-            components["noopur"] = f"unreachable: {str(e)}"
+        external_health = gateway.check_external_service_health()
+        components["external_service"] = external_health["status"]
+        if external_health["status"] != "healthy":
+            components["external_service"] += f": {external_health.get('error', 'unknown error')}"
     
     components["gateway"] = "healthy"
     components["modules"] = len(gateway.agents)
@@ -195,14 +188,8 @@ async def system_diagnostics():
             integration_checks["mongodb_ready"] = False
     
     if INTEGRATOR_USE_NOOPUR:
-        try:
-            from src.utils.noopur_client import NoopurClient
-            from config.config import NOOPUR_BASE_URL
-            noopur_client = NoopurClient(NOOPUR_BASE_URL)
-            result = noopur_client.session.get(f"{NOOPUR_BASE_URL}/health", timeout=2)
-            integration_checks["noopur_ready"] = result.status_code == 200
-        except Exception:
-            integration_checks["noopur_ready"] = False
+        external_health = gateway.check_external_service_health()
+        integration_checks["external_service_ready"] = external_health["status"] == "healthy"
     
     # Compute overall integration readiness and detailed reasons
     integration_ready = all(integration_checks.values())
