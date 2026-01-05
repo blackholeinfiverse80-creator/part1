@@ -7,7 +7,7 @@ FastAPI-based orchestration platform with SSPL Phase III security, multi-databas
 - **SSPL Phase III Security**: Ed25519 signatures, nonce replay protection, timestamp validation
 - **Multi-Database Support**: MongoDB Atlas (primary), SQLite (fallback), Noopur integration
 - **Agent System**: Finance, Education, Creator modules with memory management
-- **HTTP Communication**: Direct HTTP calls with timeout handling and error management
+- **HTTP Communication**: BridgeClient with timeout handling and error management
 - **Observability**: Health checks, diagnostics, logging endpoints
 - **InsightFlow Telemetry**: Structured event generator with heartbeats, degraded alerts, and integration_ready signals
 - **BridgeClient (Canonical)**: `BridgeClient` v1.0.0 is the single, versioned integration surface for CreatorCore. All gateway flows use it for external service communication.
@@ -97,7 +97,6 @@ When security is enabled, all requests to `/core` require:
 - `src/utils/sspl.py` - Security validation
 - `src/utils/bridge_client.py` - CreatorCore HTTP client (canonical integration surface)
 - `src/utils/insightflow.py` - Telemetry event generator
-- `src/utils/resilient_client.py` - HTTP client with circuit breaker (available but not used in main flow)
 - `security_client.py` - Security testing client
 
 ## Team Integration Guides

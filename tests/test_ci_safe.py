@@ -30,21 +30,23 @@ class TestCISafe:
         assert result["status"] == "success"
         mock_session.return_value.post.assert_called_once()
     
-    @patch('src.utils.resilient_client.requests.Session')
-    def test_resilient_client_mocked(self, mock_session):
-        """Test ResilientHTTPClient with mocked requests"""
-        from src.utils.resilient_client import ResilientHTTPClient
+    @patch('src.utils.bridge_client.requests.Session')
+    def test_bridge_client_mocked(self, mock_session):
+        """Test BridgeClient with mocked requests"""
+        from src.utils.bridge_client import BridgeClient
         
         # Mock successful response
         mock_response = Mock()
-        mock_response.json.return_value = {"result": "success"}
+        mock_response.json.return_value = {"generation_id": "test_123", "generated_text": "test content"}
         mock_response.raise_for_status.return_value = None
-        mock_session.return_value.request.return_value = mock_response
+        mock_response.status_code = 200
+        mock_session.return_value.post.return_value = mock_response
         
-        client = ResilientHTTPClient("http://mock-service")
-        result = client.post("/test", json={"data": "test"})
+        client = BridgeClient("http://mock-service")
+        result = client.generate({"prompt": "test"})
         
-        assert result["result"] == "success"
+        assert "generation_id" in result
+        assert result["generation_id"] == "test_123"
     
     def test_mongodb_adapter_import_only(self):
         """Test MongoDB adapter can be imported without connection"""
