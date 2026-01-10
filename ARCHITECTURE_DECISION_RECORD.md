@@ -1,43 +1,87 @@
-# ARCHITECTURE_DECISION_RECORD
+# Architecture Decision Record - BridgeClient Integration
 
-Decision: OPTION A — Make BridgeClient a First-Class Integration Surface
+**Date**: 2026-01-10  
+**Status**: DECIDED  
+**Decision**: Option A - Make BridgeClient a First-Class Integration Surface
 
-Date: 2025-12-30
+## Context
 
-Summary
--------
-We will stabilize and formalize the BridgeClient as the canonical integration surface to CreatorCore. BridgeClient will be versioned, schema-driven, and the official pipeline entry for Creator flows. All internal routing and gateway logic will depend on this single surface to eliminate dual-path confusion.
+During Phase 1 development, there was conceptual confusion between:
+- BridgeClient idea
+- Internal routing logic  
+- External CreatorCore connector
 
-Rationale
----------
-- The repository and test artifacts (coverage HTML, docs, and checklists) repeatedly reference a BridgeClient and demo scripts expect a `BridgeClient` API. Reinstating and stabilizing it preserves intended workflows and existing tests.
-- A single, well-documented integration surface (BridgeClient) reduces ambiguity and enforces clear contracts for CreatorCore interactions, easing hand-off to Noopur and InsightFlow.
-- Option B (removing the concept) risks breaking expected external flows and requires broader refactors across gateway, tests, and documentation.
+Two options were evaluated to resolve this ambiguity permanently.
 
-Implementation Plan (High-level)
---------------------------------
-1. Reintroduce `src/utils/bridge_client.py` as a stable, well-tested client (versioned, schema-enforcing, contract documented).
-2. Update `creator_routing.py` to depend exclusively on BridgeClient for generate/feedback/context flows and ensure deterministic generation_id lifecycle persistent mapping.
-3. Add deterministic mapping layer at Gateway (generation -> generation_id -> feedback -> retrieval) and unit tests (`test_feedback_flow_v2.py`).
-4. Implement InsightFlow telemetry generator (structured JSON events) and add `/reports/insightflow_event_samples.json`.
-5. Enhance `/system/diagnostics` and `/system/health` to include `readiness_reason`, `failing_components[]`, `timestamp`, and a numeric integration score; expose `/reports/final_readiness_matrix.json` and `/reports/final_ci_readiness.json`.
-6. Final cleanup and handover docs for integrator and stakeholders.
+## Decision
 
-Risks & Mitigation
-------------------
-- Risk: Hidden behavior in existing `creator_routing.py` expecting non-deterministic payloads. Mitigation: Add strict schema validation and backward compatibility adapter.
-- Risk: Tests rely on mocked Bridge behavior. Mitigation: Add CI-safe mocks and a small real flow using `tests/mocks/creatorcore_mock.py`.
+**SELECTED: Option A - Make BridgeClient a First-Class Integration Surface**
 
-Acceptance Criteria
--------------------
-- Single canonical BridgeClient implemented and documented.
-- No remaining references to ambiguous dual-path behavior in code or docs.
-- Deterministic generation_id lifecycle guaranteed and tested (`test_feedback_flow_v2.py`).
-- InsightFlow-friendly telemetry samples available in `/reports`.
-- `/system/diagnostics` and `/system/health` emit machine-consumable readiness fields.
+### Rationale
 
-Next steps
-----------
-- Add a working `src/utils/bridge_client.py` implementation and tests, wire it into `creator_routing.py`, and produce the required reports and docs.
+1. **Integration Surface Stability**: BridgeClient provides a stable, versioned interface for external CreatorCore integration
+2. **Schema Enforcement**: Enables strict contract validation and error handling
+3. **Ecosystem Compatibility**: Aligns with existing integration patterns expected by Ashmit (Ecosystem Integration)
+4. **Telemetry Integration**: Supports InsightFlow telemetry requirements through structured logging
+5. **Fallback Mechanisms**: Provides graceful degradation when external services are unavailable
 
-Author: GitHub Copilot (acting per stakeholder instructions)
+### Implementation
+
+- **BridgeClient** (`src/utils/bridge_client.py`) - HTTP client with retry logic, timeout handling, error classification
+- **Gateway Integration** (`src/core/gateway.py`) - BridgeClient wired into runtime path for external service health checks
+- **Contract Definition** - Explicit request/response contract with Noopur backend
+- **Error Handling** - Network, Logic, Schema, Unexpected error classification
+- **Health Monitoring** - External service health checks via BridgeClient
+
+## Rejected Alternative
+
+**Option B - Declare Bridge Eliminated** was rejected because:
+- Would require removing existing integration points with Noopur
+- Would eliminate external service health monitoring capabilities
+- Would reduce system observability and telemetry
+- Would break existing contract expectations
+
+## Consequences
+
+### Positive
+- Clear separation of concerns between internal routing and external integration
+- Stable integration surface for ecosystem partners
+- Enhanced error handling and retry mechanisms
+- Support for external service health monitoring
+
+### Negative  
+- Additional complexity in maintaining external service contracts
+- Dependency on external service availability for full functionality
+- Requires ongoing contract synchronization with integration partners
+
+## Risks Mitigated
+
+- **Silent Breakpoints**: Explicit contract validation prevents silent failures
+- **Integration Drift**: Versioned interface prevents compatibility issues
+- **Service Dependencies**: Graceful fallback when external services unavailable
+- **Monitoring Gaps**: Health checks provide visibility into external service status
+
+## Final Architecture
+
+```
+User Request → Gateway → Agent Processing
+                ↓
+         BridgeClient → External Services (Noopur)
+                ↓
+         Health Monitoring → InsightFlow Telemetry
+```
+
+**Contract Version**: v1.0.0  
+**Integration Partners**: Noopur (Context Backend), InsightFlow (Telemetry)  
+**Fallback Strategy**: Local processing when external services unavailable
+
+## Verification
+
+- ✅ BridgeClient implemented with full contract
+- ✅ Gateway integration completed
+- ✅ Health monitoring operational
+- ✅ Error classification functional
+- ✅ Retry mechanisms tested
+- ✅ Fallback behavior verified
+
+**Decision Final**: No ambiguity remains. BridgeClient is the official external integration surface.

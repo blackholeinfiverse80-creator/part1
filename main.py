@@ -1,4 +1,4 @@
-from fastapi import FastAPI, HTTPException, Depends
+from fastapi import FastAPI, HTTPException, Depends, Request
 from typing import List, Dict, Any, Optional
 import os
 import sqlite3
@@ -8,6 +8,7 @@ from src.core.feedback_models import FeedbackRequest
 from src.core.gateway import Gateway
 from src.db.memory import ContextMemory
 from config.config import DB_PATH
+from src.utils.security_hardening import security_middleware, validate_user_request, security
 
 # Optional SSPL - can be disabled for testing
 SSPL_ENABLED = os.getenv("SSPL_ENABLED", "false").lower() in ("true", "1", "yes")
@@ -24,51 +25,93 @@ app = FastAPI(
     version="1.0.0"
 )
 
+# Add security middleware
+app.middleware("http")(security_middleware)
+
 # Initialize gateway and memory
 gateway = Gateway()
 memory = ContextMemory(DB_PATH)
 
 @app.post("/core", response_model=CoreResponse)
-async def core_endpoint(request: CoreRequest, _sspl=Depends(require_sspl)) -> CoreResponse:
+async def core_endpoint(request: CoreRequest, http_request: Request, _sspl=Depends(require_sspl)) -> CoreResponse:
     """Main gateway endpoint for processing agent requests"""
     try:
+        # Security validation
+        validated_user_id = validate_user_request(request.user_id, http_request)
+        
         response = gateway.process_request(
             module=request.module,
             intent=request.intent, 
-            user_id=request.user_id,
+            user_id=validated_user_id,
             data=request.data
         )
-        # Validate response structure before creating CoreResponse
+        
+        # Validate response structure
         if not isinstance(response, dict) or 'status' not in response:
-            raise HTTPException(status_code=500, detail="Invalid agent response format")
+            raise HTTPException(status_code=500, detail="Processing failed")
         
-        # Ensure required fields exist
-        response.setdefault('message', 'No message provided')
-        response.setdefault('result', {})
+        # Sanitize response
+        sanitized_response = security.sanitize_response(response)
+        sanitized_response.setdefault('message', 'Request processed')
+        sanitized_response.setdefault('result', {})
         
-        return CoreResponse(**response)
-    except ValueError as e:
-        raise HTTPException(status_code=422, detail=f"Response validation error: {str(e)}")
+        return CoreResponse(**sanitized_response)
+    except HTTPException:
+        raise
     except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
+        raise HTTPException(status_code=500, detail="Processing failed")
 
 @app.get("/get-history")
-async def get_history(user_id: str) -> List[Dict[str, Any]]:
+async def get_history(user_id: str, request: Request) -> List[Dict[str, Any]]:
     """Get full interaction history for a user"""
     try:
-        history = memory.get_user_history(user_id)
-        return history
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
+        # Security validation
+        validated_user_id = validate_user_request(user_id, request)
+        
+        history = memory.get_user_history(validated_user_id)
+        
+        # Limit and sanitize history
+        limited_history = history[:10]  # Limit to 10 most recent
+        sanitized_history = []
+        
+        for item in limited_history:
+            sanitized_item = {
+                "module": item.get("module"),
+                "timestamp": item.get("timestamp"),
+                "response": security.sanitize_response(item.get("response", {}))
+            }
+            sanitized_history.append(sanitized_item)
+            
+        return sanitized_history
+    except HTTPException:
+        raise
+    except Exception:
+        raise HTTPException(status_code=500, detail="History retrieval failed")
 
 @app.get("/get-context") 
-async def get_context(user_id: str) -> List[Dict[str, Any]]:
+async def get_context(user_id: str, request: Request) -> List[Dict[str, Any]]:
     """Get recent context (last 3 interactions) for a user"""
     try:
-        context = memory.get_context(user_id)
-        return context
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
+        # Security validation
+        validated_user_id = validate_user_request(user_id, request)
+        
+        context = memory.get_context(validated_user_id)
+        
+        # Sanitize context data
+        sanitized_context = []
+        for item in context:
+            sanitized_item = {
+                "module": item.get("module"),
+                "timestamp": item.get("timestamp"),
+                "response": security.sanitize_response(item.get("response", {}))
+            }
+            sanitized_context.append(sanitized_item)
+            
+        return sanitized_context
+    except HTTPException:
+        raise
+    except Exception:
+        raise HTTPException(status_code=500, detail="Context retrieval failed")
 
 @app.get("/")
 async def root():
@@ -81,194 +124,117 @@ async def root():
 
 @app.get("/system/health")
 async def system_health():
-    """System health check with MongoDB and Noopur connectivity"""
-    from src.utils.insightflow import make_event
-    
-    components = {}
-    
-    # SQLite database check
+    """System health check - minimal information disclosure"""
     try:
-        with sqlite3.connect(DB_PATH) as conn:
-            conn.execute("SELECT 1").fetchone()
-        components["database"] = "healthy"
-    except Exception as e:
-        components["database"] = f"unhealthy: {str(e)}"
-    
-    # MongoDB check (if enabled)
-    from config.config import USE_MONGODB
-    if USE_MONGODB:
+        # Basic health checks only
+        database_healthy = False
         try:
-            from src.db.mongodb_adapter import MongoDBAdapter
-            from config.config import MONGODB_CONNECTION_STRING, MONGODB_DATABASE_NAME
-            mongo_adapter = MongoDBAdapter(MONGODB_CONNECTION_STRING, MONGODB_DATABASE_NAME)
-            # Simple ping test
-            mongo_adapter.client.admin.command('ping')
-            components["mongodb"] = "healthy"
-        except Exception as e:
-            components["mongodb"] = f"unhealthy: {str(e)}"
-    
-    # Noopur reachability check (if enabled) - use gateway's BridgeClient
-    from config.config import INTEGRATOR_USE_NOOPUR
-    if INTEGRATOR_USE_NOOPUR:
-        external_health = gateway.check_external_service_health()
-        components["external_service"] = external_health["status"]
-        if external_health["status"] != "healthy":
-            components["external_service"] += f": {external_health.get('error', 'unknown error')}"
-    
-    components["gateway"] = "healthy"
-    components["modules"] = len(gateway.agents)
-    
-    # Overall status
-    unhealthy_components = [k for k, v in components.items() if "unhealthy" in str(v) or "unreachable" in str(v)]
-    overall_status = "degraded" if unhealthy_components else "healthy"
-    
-    # Generate InsightFlow telemetry event
-    insightflow_event = make_event(
-        event_type="heartbeat",
-        component="core_integrator",
-        status=overall_status,
-        details=components
-    )
-    
-    return {
-        "status": overall_status,
-        "components": components,
-        "timestamp": __import__('datetime').datetime.utcnow().isoformat() + 'Z',
-        "insightflow_event": insightflow_event
-    }
+            with sqlite3.connect(DB_PATH) as conn:
+                conn.execute("SELECT 1").fetchone()
+            database_healthy = True
+        except:
+            pass
+            
+        gateway_healthy = gateway is not None
+        
+        overall_status = "healthy" if (database_healthy and gateway_healthy) else "degraded"
+        
+        # Minimal response - no internal details
+        return {
+            "status": overall_status,
+            "timestamp": __import__('datetime').datetime.utcnow().isoformat() + 'Z'
+        }
+    except Exception:
+        return {
+            "status": "unhealthy",
+            "timestamp": __import__('datetime').datetime.utcnow().isoformat() + 'Z'
+        }
 
 @app.get("/system/diagnostics")
 async def system_diagnostics():
-    """System diagnostics with module load status and integration readiness"""
-    from src.utils.insightflow import make_event
-    
-    # Module load status
-    module_load_status = {}
-    for name, agent in gateway.agents.items():
-        if agent is None:
-            module_load_status[name] = "invalid"
-        else:
-            module_load_status[name] = "valid"
-    
-    # Get memory stats
+    """System diagnostics - limited information disclosure"""
     try:
-        with sqlite3.connect(DB_PATH) as conn:
-            cursor = conn.execute("SELECT COUNT(*) FROM interactions")
-            total_interactions = cursor.fetchone()[0]
-            cursor = conn.execute("SELECT COUNT(DISTINCT user_id) FROM interactions")
-            unique_users = cursor.fetchone()[0]
-        db_healthy = True
-    except Exception:
-        total_interactions = 0
-        unique_users = 0
-        db_healthy = False
-    
-    # Check security components
-    nonce_db_exists = os.path.exists("data/nonce_store.db")
-    
-    # Compute integration_ready status
-    integration_checks = {
-        "core_modules_loaded": all(status == "valid" for status in module_load_status.values()),
-        "database_accessible": db_healthy,
-        "gateway_initialized": gateway is not None,
-        "memory_adapter_ready": gateway.memory is not None
-    }
-    
-    # Additional integration checks
-    from config.config import USE_MONGODB, INTEGRATOR_USE_NOOPUR
-    
-    if USE_MONGODB:
+        # Basic integration checks only
+        modules_loaded = len(gateway.agents) > 0
+        database_accessible = True
+        gateway_initialized = gateway is not None
+        
         try:
-            from src.db.mongodb_adapter import MongoDBAdapter
-            from config.config import MONGODB_CONNECTION_STRING, MONGODB_DATABASE_NAME
-            mongo_adapter = MongoDBAdapter(MONGODB_CONNECTION_STRING, MONGODB_DATABASE_NAME)
-            mongo_adapter.client.admin.command('ping')
-            integration_checks["mongodb_ready"] = True
-        except Exception:
-            integration_checks["mongodb_ready"] = False
-    
-    if INTEGRATOR_USE_NOOPUR:
-        external_health = gateway.check_external_service_health()
-        integration_checks["external_service_ready"] = external_health["status"] == "healthy"
-    
-    # Compute overall integration readiness and detailed reasons
-    integration_ready = all(integration_checks.values())
-
-    failing_components = [k for k, v in integration_checks.items() if not v]
-
-    # integration score: proportion of passing checks (0.0 - 1.0)
-    total_checks = len(integration_checks) if integration_checks else 0
-    passing = sum(1 for v in integration_checks.values() if v)
-    integration_score = round((passing / total_checks) if total_checks else 0.0, 3)
-
-    readiness_reason = "all_checks_passed" if integration_ready else ";".join(failing_components) if failing_components else "unknown"
-
-    # Generate InsightFlow telemetry event
-    event_status = "healthy" if integration_ready else "degraded"
-    insightflow_event = make_event(
-        event_type="integration_ready" if integration_ready else "degraded_alert",
-        component="core_integrator",
-        status=event_status,
-        details={
-            "integration_checks": integration_checks,
-            "module_load_status": module_load_status,
-            "readiness_reason": readiness_reason
-        },
-        integration_score=integration_score,
-        failing_components=failing_components if failing_components else None
-    )
-
-    return {
-        "module_load_status": module_load_status,
-        "integration_ready": integration_ready,
-        "integration_checks": integration_checks,
-        "integration_score": integration_score,
-        "readiness_reason": readiness_reason,
-        "failing_components": failing_components,
-        "timestamp": __import__('datetime').datetime.utcnow().isoformat() + 'Z',
-        "signature": None,
-        "modules": {name: type(agent).__name__ for name, agent in gateway.agents.items() if agent is not None},
-        "memory": {
-            "total_interactions": total_interactions,
-            "unique_users": unique_users,
-            "db_path": DB_PATH,
-            "adapter_type": type(gateway.memory).__name__
-        },
-        "security": {
-            "nonce_store_enabled": nonce_db_exists,
-            "sspl_middleware": SSPL_ENABLED
-        },
-        "version": "1.0.0",
-        "insightflow_event": insightflow_event
-    }
+            with sqlite3.connect(DB_PATH) as conn:
+                conn.execute("SELECT 1").fetchone()
+        except:
+            database_accessible = False
+            
+        integration_checks = {
+            "core_modules_loaded": modules_loaded,
+            "database_accessible": database_accessible,
+            "gateway_initialized": gateway_initialized
+        }
+        
+        integration_ready = all(integration_checks.values())
+        integration_score = sum(integration_checks.values()) / len(integration_checks)
+        
+        # Minimal response - no internal details
+        return {
+            "integration_ready": integration_ready,
+            "integration_score": round(integration_score, 3),
+            "timestamp": __import__('datetime').datetime.utcnow().isoformat() + 'Z'
+        }
+    except Exception:
+        return {
+            "integration_ready": False,
+            "integration_score": 0.0,
+            "timestamp": __import__('datetime').datetime.utcnow().isoformat() + 'Z'
+        }
 
 @app.post("/feedback")
-async def submit_feedback(request: FeedbackRequest, _sspl=Depends(require_sspl)):
+async def submit_feedback(request: FeedbackRequest, http_request: Request, _sspl=Depends(require_sspl)):
     """Submit feedback for generated content"""
     try:
+        # Security validation
+        user_id = request.user_id or "anonymous"
+        if user_id != "anonymous":
+            user_id = validate_user_request(user_id, http_request)
+            
         response = gateway.process_request(
             module="creator",
             intent="feedback",
-            user_id=request.user_id or "anonymous",
+            user_id=user_id,
             data=request.dict()
         )
-        return response
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
+        
+        # Sanitize response
+        sanitized_response = security.sanitize_response(response)
+        return sanitized_response
+    except HTTPException:
+        raise
+    except Exception:
+        raise HTTPException(status_code=500, detail="Feedback processing failed")
 
 @app.get("/creator/history")
-async def get_creator_history(user_id: str = "all"):
+async def get_creator_history(user_id: str, request: Request):
     """Get creator generation history"""
     try:
+        # Security validation - no "all" access allowed
+        if user_id == "all":
+            raise HTTPException(status_code=400, detail="Invalid user identifier")
+            
+        validated_user_id = validate_user_request(user_id, request)
+        
         response = gateway.process_request(
             module="creator",
             intent="history",
-            user_id=user_id if user_id != "all" else None,
+            user_id=validated_user_id,
             data={}
         )
-        return response
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
+        
+        # Sanitize response
+        sanitized_response = security.sanitize_response(response)
+        return sanitized_response
+    except HTTPException:
+        raise
+    except Exception:
+        raise HTTPException(status_code=500, detail="History retrieval failed")
 
 @app.get("/system/logs/latest")
 async def system_logs_latest(limit: int = 50):
