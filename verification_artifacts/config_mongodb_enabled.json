@@ -7,35 +7,18 @@
     "INTEGRATOR_USE_NOOPUR": "false",
     "SSPL_ENABLED": "true"
   },
-  "timestamp": "2026-01-10T06:24:31.864229Z",
+  "timestamp": "2026-01-24T12:34:01.281095Z",
   "endpoints": {
     "health": {
       "endpoint": "/system/health",
       "method": "GET",
       "status_code": 200,
       "success": true,
-      "response_time_ms": 2043,
-      "timestamp": "2026-01-10T06:24:33.908419Z",
+      "response_time_ms": 2319,
+      "timestamp": "2026-01-24T12:34:03.601349Z",
       "response_data": {
         "status": "healthy",
-        "components": {
-          "database": "healthy",
-          "gateway": "healthy",
-          "modules": 4
-        },
-        "timestamp": "2026-01-10T06:24:33.907354Z",
-        "insightflow_event": {
-          "insightflow_version": "1.0.0",
-          "event_type": "heartbeat",
-          "component": "core_integrator",
-          "status": "healthy",
-          "details": {
-            "database": "healthy",
-            "gateway": "healthy",
-            "modules": 4
-          },
-          "timestamp": "2026-01-10T06:24:33.907251+00:00"
-        }
+        "timestamp": "2026-01-24T12:34:03.600329Z"
       }
     },
     "diagnostics": {
@@ -43,67 +26,12 @@
       "method": "GET",
       "status_code": 200,
       "success": true,
-      "response_time_ms": 2048,
-      "timestamp": "2026-01-10T06:24:35.957759Z",
+      "response_time_ms": 2752,
+      "timestamp": "2026-01-24T12:34:06.354488Z",
       "response_data": {
-        "module_load_status": {
-          "finance": "valid",
-          "education": "valid",
-          "creator": "valid",
-          "sample_text": "valid"
-        },
         "integration_ready": true,
-        "integration_checks": {
-          "core_modules_loaded": true,
-          "database_accessible": true,
-          "gateway_initialized": true,
-          "memory_adapter_ready": true
-        },
         "integration_score": 1.0,
-        "readiness_reason": "all_checks_passed",
-        "failing_components": [],
-        "timestamp": "2026-01-10T06:24:35.956467Z",
-        "signature": null,
-        "modules": {
-          "finance": "FinanceAgent",
-          "education": "EducationAgent",
-          "creator": "CreatorAgent",
-          "sample_text": "SampleTextModule"
-        },
-        "memory": {
-          "total_interactions": 12,
-          "unique_users": 6,
-          "db_path": "data/context.db",
-          "adapter_type": "SQLiteAdapter"
-        },
-        "security": {
-          "nonce_store_enabled": true,
-          "sspl_middleware": false
-        },
-        "version": "1.0.0",
-        "insightflow_event": {
-          "insightflow_version": "1.0.0",
-          "event_type": "integration_ready",
-          "component": "core_integrator",
-          "status": "healthy",
-          "details": {
-            "integration_checks": {
-              "core_modules_loaded": true,
-              "database_accessible": true,
-              "gateway_initialized": true,
-              "memory_adapter_ready": true
-            },
-            "module_load_status": {
-              "finance": "valid",
-              "education": "valid",
-              "creator": "valid",
-              "sample_text": "valid"
-            },
-            "readiness_reason": "all_checks_passed"
-          },
-          "timestamp": "2026-01-10T06:24:35.956355+00:00",
-          "integration_score": 1.0
-        }
+        "timestamp": "2026-01-24T12:34:06.353503Z"
       }
     },
     "core": {
@@ -111,8 +39,8 @@
       "method": "POST",
       "status_code": 200,
       "success": true,
-      "response_time_ms": 2051,
-      "timestamp": "2026-01-10T06:24:38.010357Z",
+      "response_time_ms": 2395,
+      "timestamp": "2026-01-24T12:34:08.751076Z",
       "response_data": {
         "status": "success",
         "message": "Financial analysis completed",
@@ -127,8 +55,8 @@
       "method": "POST",
       "status_code": 422,
       "success": false,
-      "response_time_ms": 2018,
-      "timestamp": "2026-01-10T06:24:40.029682Z",
+      "response_time_ms": 2207,
+      "timestamp": "2026-01-24T12:34:10.959214Z",
       "response_data": {
         "detail": [
           {
@@ -152,7 +80,7 @@
               "generation_id": "invalid_format",
               "feedback_type": "invalid_type",
               "content": "test feedback",
-              "timestamp": "2026-01-10T06:24:40.028717"
+              "timestamp": "2026-01-24T12:34:10.958193"
             }
           }
         ]
@@ -160,11 +88,7 @@
     }
   },
   "health_status": "healthy",
-  "components": {
-    "database": "healthy",
-    "gateway": "healthy",
-    "modules": 4
-  },
+  "components": {},
   "integration_ready": true,
   "integration_score": 1.0,
   "failing_components": [],

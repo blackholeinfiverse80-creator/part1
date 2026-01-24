@@ -20,3 +20,7 @@ SSPL_ALLOW_DRIFT_SECONDS = int(os.getenv("SSPL_ALLOW_DRIFT_SECONDS", "300"))
 MONGODB_CONNECTION_STRING = os.getenv("MONGODB_CONNECTION_STRING", "mongodb://localhost:27017")
 MONGODB_DATABASE_NAME = os.getenv("MONGODB_DATABASE_NAME", "core_integrator")
 USE_MONGODB = os.getenv("USE_MONGODB", "false").lower() in ("1", "true", "yes")
+
+# Video Service configuration (Text-to-Video)
+VIDEO_SERVICE_URL = os.getenv("VIDEO_SERVICE_URL", "http://localhost:5002")
+VIDEO_SERVICE_TIMEOUT = int(os.getenv("VIDEO_SERVICE_TIMEOUT", "300"))

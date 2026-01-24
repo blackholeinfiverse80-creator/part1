@@ -14,7 +14,9 @@ def home():
 
 
 # Load schema
-with open('utils/schema.json', 'r') as f:
+import os
+schema_path = os.path.join(os.path.dirname(__file__), 'utils', 'schema.json')
+with open(schema_path, 'r') as f:
     schema = json.load(f)
 
 # Mock Gemini integration (replace with actual LangChain + Gemini later)

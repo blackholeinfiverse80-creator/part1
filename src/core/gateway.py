@@ -1,7 +1,8 @@
 from typing import Dict, Any
 from ..agents.finance import FinanceAgent
-from ..agents.education import EducationAgent  
+from ..agents.education import EducationAgent
 from ..agents.creator import CreatorAgent
+from ..agents.video import VideoAgent
 from ..modules.base import BaseModule
 from .module_loader import load_modules
 from .feedback_models import CanonicalFeedbackSchema
@@ -9,6 +10,7 @@ from ..db.memory import ContextMemory
 from ..db.memory_adapter import SQLiteAdapter, RemoteNoopurAdapter, MONGODB_AVAILABLE
 from ..utils.logger import setup_logger
 from ..utils.bridge_client import BridgeClient
+from ..utils.video_bridge_client import VideoBridgeClient
 from config.config import DB_PATH, INTEGRATOR_USE_NOOPUR, USE_MONGODB, MONGODB_CONNECTION_STRING, MONGODB_DATABASE_NAME
 from pydantic import ValidationError
 
@@ -28,11 +30,15 @@ class Gateway:
         # Initialize BridgeClient as canonical external service interface
         self.bridge_client = BridgeClient()
         
+        # Initialize VideoBridgeClient for text-to-video service
+        self.video_bridge_client = VideoBridgeClient()
+        
         # Built-in agents (non-module agents)
         self.agents = {
             "finance": FinanceAgent(),
             "education": EducationAgent(),
             "creator": CreatorAgent(),
+            "video": VideoAgent(),
         }
 
         # Dynamically load modules from modules/ directory
