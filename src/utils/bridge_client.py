@@ -9,6 +9,7 @@ import requests
 import time
 from typing import Dict, Any, Optional
 from enum import Enum
+import logging
 
 VERSION = "1.0.0"
 
@@ -35,10 +36,12 @@ class BridgeClient:
         self.timeout = timeout
         self.session = requests.Session()
         self.client_version = VERSION
+        self.logger = logging.getLogger(__name__)
 
     def _make_request(self, method: str, endpoint: str, data: Optional[Dict] = None, retries: int = 3) -> Dict[str, Any]:
         """Make HTTP request with retry logic and deterministic error classification."""
         url = f"{self.base_url}{endpoint}"
+        start_time = time.time()
 
         for attempt in range(retries):
             try:
@@ -53,19 +56,36 @@ class BridgeClient:
 
                 # Expect JSON; if decode fails, classify as unexpected
                 try:
-                    return response.json()
+                    result = response.json()
+                    latency = round((time.time() - start_time) * 1000, 2)
+                    self.logger.info(f"Dependency call successful: {method} {endpoint}",
+                                   extra={"dependency": "creatorcore", "method": method, "endpoint": endpoint,
+                                          "latency_ms": latency, "status_code": response.status_code})
+                    return result
                 except ValueError as e:
+                    latency = round((time.time() - start_time) * 1000, 2)
+                    self.logger.error(f"Dependency call failed - invalid JSON: {method} {endpoint}",
+                                    extra={"dependency": "creatorcore", "method": method, "endpoint": endpoint,
+                                           "latency_ms": latency, "error": str(e)})
                     return self._handle_error(ErrorType.UNEXPECTED, f"Invalid JSON response: {str(e)}", endpoint)
 
             except requests.exceptions.ConnectionError as e:
                 error_type = ErrorType.NETWORK
                 if attempt == retries - 1:
+                    latency = round((time.time() - start_time) * 1000, 2)
+                    self.logger.error(f"Dependency call failed - connection error: {method} {endpoint}",
+                                    extra={"dependency": "creatorcore", "method": method, "endpoint": endpoint,
+                                           "latency_ms": latency, "error_type": error_type.value, "error": str(e)})
                     return self._handle_error(error_type, str(e), endpoint)
                 time.sleep(0.5 * (attempt + 1))  # Exponential backoff
 
             except requests.exceptions.Timeout as e:
                 error_type = ErrorType.NETWORK
                 if attempt == retries - 1:
+                    latency = round((time.time() - start_time) * 1000, 2)
+                    self.logger.error(f"Dependency call failed - timeout: {method} {endpoint}",
+                                    extra={"dependency": "creatorcore", "method": method, "endpoint": endpoint,
+                                           "latency_ms": latency, "error_type": error_type.value, "timeout_seconds": self.timeout})
                     return self._handle_error(error_type, f"Timeout after {self.timeout}s", endpoint)
                 time.sleep(0.5 * (attempt + 1))
 
@@ -78,15 +98,27 @@ class BridgeClient:
                     error_type = ErrorType.LOGIC
                 else:
                     error_type = ErrorType.UNEXPECTED
+                latency = round((time.time() - start_time) * 1000, 2)
+                self.logger.error(f"Dependency call failed - HTTP error: {method} {endpoint}",
+                                extra={"dependency": "creatorcore", "method": method, "endpoint": endpoint,
+                                       "latency_ms": latency, "status_code": status, "error_type": error_type.value})
                 return self._handle_error(error_type, str(e), endpoint)
 
             except Exception as e:
                 # Unexpected errors
                 error_type = ErrorType.UNEXPECTED
                 if attempt == retries - 1:
+                    latency = round((time.time() - start_time) * 1000, 2)
+                    self.logger.error(f"Dependency call failed - unexpected error: {method} {endpoint}",
+                                    extra={"dependency": "creatorcore", "method": method, "endpoint": endpoint,
+                                           "latency_ms": latency, "error_type": error_type.value, "error": str(e)})
                     return self._handle_error(error_type, str(e), endpoint)
                 time.sleep(0.5 * (attempt + 1))
 
+        latency = round((time.time() - start_time) * 1000, 2)
+        self.logger.error(f"Dependency call failed - max retries exceeded: {method} {endpoint}",
+                        extra={"dependency": "creatorcore", "method": method, "endpoint": endpoint,
+                               "latency_ms": latency, "retries": retries})
         return self._handle_error(ErrorType.NETWORK, "Max retries exceeded", endpoint)
 
     def _handle_error(self, error_type: ErrorType, message: str, endpoint: str) -> Dict[str, Any]:

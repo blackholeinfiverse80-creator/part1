@@ -7,8 +7,12 @@ from src.core.models import CoreRequest, CoreResponse
 from src.core.feedback_models import FeedbackRequest
 from src.core.gateway import Gateway
 from src.db.memory import ContextMemory
-from config.config import DB_PATH
+from config.config import DB_PATH, validate_config, get_config_summary
 from src.utils.security_hardening import security_middleware, validate_user_request, security
+import asyncio
+
+# Validate configuration on startup
+validate_config()
 
 # Optional SSPL - can be disabled for testing
 SSPL_ENABLED = os.getenv("SSPL_ENABLED", "false").lower() in ("true", "1", "yes")
@@ -124,66 +128,111 @@ async def root():
 
 @app.get("/system/health")
 async def system_health():
-    """System health check - minimal information disclosure"""
+    """System health check - binary status with explicit dependency checks"""
     try:
-        # Basic health checks only
-        database_healthy = False
+        # Check database connectivity
+        database_status = "up"
         try:
             with sqlite3.connect(DB_PATH) as conn:
                 conn.execute("SELECT 1").fetchone()
-            database_healthy = True
-        except:
-            pass
-            
-        gateway_healthy = gateway is not None
-        
-        overall_status = "healthy" if (database_healthy and gateway_healthy) else "degraded"
-        
-        # Minimal response - no internal details
+        except Exception:
+            database_status = "down"
+
+        # Check gateway initialization
+        gateway_status = "up" if gateway is not None else "down"
+
+        # Check external services
+        noopur_status = "disabled"
+        if os.getenv("INTEGRATOR_USE_NOOPUR", "false").lower() in ("1", "true", "yes"):
+            try:
+                # Use NoopurClient for health check
+                from src.utils.noopur_client import NoopurClient
+                noopur_client = NoopurClient()
+                noopur_status = asyncio.run(noopur_client.health_check())
+            except Exception:
+                noopur_status = "down"
+
+        video_service_status = "disabled"
+        try:
+            # Check video service health
+            video_health = gateway.video_bridge_client.generate_video("test")
+            video_service_status = "up" if not video_health.get("fallback_used", True) else "down"
+        except Exception:
+            video_service_status = "down"
+
+        # Determine overall status
+        dependencies = [database_status, gateway_status]
+        if noopur_status != "disabled":
+            dependencies.append(noopur_status)
+        if video_service_status != "disabled":
+            dependencies.append(video_service_status)
+
+        overall_status = "ok" if all(dep in ["up", "disabled"] for dep in dependencies) else "down"
+
         return {
             "status": overall_status,
+            "dependencies": {
+                "database": database_status,
+                "gateway": gateway_status,
+                "noopur": noopur_status,
+                "video_service": video_service_status
+            },
             "timestamp": __import__('datetime').datetime.utcnow().isoformat() + 'Z'
         }
-    except Exception:
+    except Exception as e:
         return {
-            "status": "unhealthy",
+            "status": "down",
+            "error": str(e),
             "timestamp": __import__('datetime').datetime.utcnow().isoformat() + 'Z'
         }
 
 @app.get("/system/diagnostics")
 async def system_diagnostics():
-    """System diagnostics - limited information disclosure"""
+    """System diagnostics - internal details for monitoring"""
     try:
-        # Basic integration checks only
-        modules_loaded = len(gateway.agents) > 0
-        database_accessible = True
-        gateway_initialized = gateway is not None
-        
+        import time
+
+        # Measure database latency
+        db_latency = None
+        db_status = "unknown"
         try:
+            start_time = time.time()
             with sqlite3.connect(DB_PATH) as conn:
                 conn.execute("SELECT 1").fetchone()
-        except:
-            database_accessible = False
-            
-        integration_checks = {
-            "core_modules_loaded": modules_loaded,
-            "database_accessible": database_accessible,
-            "gateway_initialized": gateway_initialized
-        }
-        
-        integration_ready = all(integration_checks.values())
-        integration_score = sum(integration_checks.values()) / len(integration_checks)
-        
-        # Minimal response - no internal details
+            db_latency = round((time.time() - start_time) * 1000, 2)  # ms
+            db_status = "connected"
+        except Exception as e:
+            db_status = f"error: {str(e)}"
+
+        # Get configuration summary
+        config = get_config_summary()
+
+        # Check agent/module status
+        agent_status = {}
+        for name, agent in gateway.agents.items():
+            agent_status[name] = "loaded" if agent is not None else "failed"
+
+        # Memory adapter info
+        memory_adapter = type(gateway.memory).__name__
+
         return {
-            "integration_ready": integration_ready,
-            "integration_score": round(integration_score, 3),
+            "config": config,
+            "database": {
+                "status": db_status,
+                "latency_ms": db_latency,
+                "adapter": memory_adapter
+            },
+            "agents": agent_status,
+            "feature_flags": {
+                "sspl_enabled": os.getenv("SSPL_ENABLED", "false").lower() in ("1", "true", "yes"),
+                "noopur_integration": config["noopur_enabled"],
+                "mongodb_enabled": config["db_mode"] == "mongodb"
+            },
             "timestamp": __import__('datetime').datetime.utcnow().isoformat() + 'Z'
         }
-    except Exception:
+    except Exception as e:
         return {
-            "integration_ready": False,
-            "integration_score": 0.0,
+            "error": str(e),
             "timestamp": __import__('datetime').datetime.utcnow().isoformat() + 'Z'
         }
 

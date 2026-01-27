@@ -1,6 +1,7 @@
 import requests
 from typing import Dict, Any, Optional
-from .logger import setup_logger
+import logging
+import time
 import os
 
 
@@ -12,14 +13,18 @@ class VideoBridgeClient:
             "VIDEO_SERVICE_URL",
             "http://localhost:5002"
         )
-        self.logger = setup_logger(__name__)
+        self.logger = logging.getLogger(__name__)
         self.timeout = int(os.getenv("VIDEO_SERVICE_TIMEOUT", "300"))
         self.max_retries = 3
     
     def generate_video(self, text: str, **kwargs) -> Dict[str, Any]:
         """Generate video from text"""
+        start_time = time.time()
         try:
             if not text or not text.strip():
+                self.logger.warning("Video generation failed - empty text",
+                                  extra={"dependency": "video_service", "endpoint": "/generate-video",
+                                         "error_type": "schema", "error": "Text cannot be empty"})
                 return {
                     "success": False,
                     "error_type": "schema",
@@ -36,7 +41,9 @@ class VideoBridgeClient:
                 "language": kwargs.get("language", "en")
             }
             
-            self.logger.info(f"Generating video: {text[:50]}...")
+            self.logger.info(f"Starting video generation",
+                           extra={"dependency": "video_service", "endpoint": "/generate-video",
+                                  "text_length": len(text), "topic": payload["topic"]})
             
             response = requests.post(
                 f"{self.base_url}/generate-video",
@@ -47,12 +54,19 @@ class VideoBridgeClient:
             
             response.raise_for_status()
             result = response.json()
+            latency = round((time.time() - start_time) * 1000, 2)
             
-            self.logger.info(f"Video generation started: {result.get('generation_id')}")
+            self.logger.info(f"Video generation successful",
+                           extra={"dependency": "video_service", "endpoint": "/generate-video",
+                                  "latency_ms": latency, "status_code": response.status_code,
+                                  "generation_id": result.get('generation_id')})
             return result
             
         except requests.exceptions.Timeout:
-            self.logger.error("Video generation timeout")
+            latency = round((time.time() - start_time) * 1000, 2)
+            self.logger.error("Video generation failed - timeout",
+                            extra={"dependency": "video_service", "endpoint": "/generate-video",
+                                   "latency_ms": latency, "error_type": "network", "timeout_seconds": self.timeout})
             return {
                 "success": False,
                 "error_type": "network",
@@ -61,7 +75,10 @@ class VideoBridgeClient:
                 "fallback_used": True
             }
         except requests.exceptions.ConnectionError:
-            self.logger.error("Cannot connect to video service")
+            latency = round((time.time() - start_time) * 1000, 2)
+            self.logger.error("Video generation failed - connection error",
+                            extra={"dependency": "video_service", "endpoint": "/generate-video",
+                                   "latency_ms": latency, "error_type": "network"})
             return {
                 "success": False,
                 "error_type": "network",
@@ -70,7 +87,10 @@ class VideoBridgeClient:
                 "fallback_used": True
             }
         except Exception as e:
-            self.logger.error(f"Video generation failed: {e}")
+            latency = round((time.time() - start_time) * 1000, 2)
+            self.logger.error(f"Video generation failed - unexpected error: {str(e)}",
+                            extra={"dependency": "video_service", "endpoint": "/generate-video",
+                                   "latency_ms": latency, "error_type": "unexpected", "error": str(e)})
             return {
                 "success": False,
                 "error_type": "unexpected",
@@ -81,8 +101,12 @@ class VideoBridgeClient:
     
     def get_video_status(self, generation_id: str) -> Dict[str, Any]:
         """Get video generation status"""
+        start_time = time.time()
         try:
             if not generation_id:
+                self.logger.warning("Video status check failed - missing generation_id",
+                                  extra={"dependency": "video_service", "endpoint": "/status/{generation_id}",
+                                         "error_type": "schema"})
                 return {
                     "success": False,
                     "error_type": "schema",
@@ -96,10 +120,40 @@ class VideoBridgeClient:
             )
             
             response.raise_for_status()
-            return response.json()
+            result = response.json()
+            latency = round((time.time() - start_time) * 1000, 2)
             
+            self.logger.info(f"Video status check successful",
+                           extra={"dependency": "video_service", "endpoint": f"/status/{generation_id}",
+                                  "latency_ms": latency, "status_code": response.status_code,
+                                  "generation_id": generation_id, "status": result.get('status')})
+            return result
+            
+        except requests.exceptions.Timeout:
+            latency = round((time.time() - start_time) * 1000, 2)
+            self.logger.error("Video status check failed - timeout",
+                            extra={"dependency": "video_service", "endpoint": f"/status/{generation_id}",
+                                   "latency_ms": latency, "error_type": "network", "generation_id": generation_id})
+            return {
+                "success": False,
+                "error_type": "network",
+                "error_message": "Status check timeout"
+            }
+        except requests.exceptions.ConnectionError:
+            latency = round((time.time() - start_time) * 1000, 2)
+            self.logger.error("Video status check failed - connection error",
+                            extra={"dependency": "video_service", "endpoint": f"/status/{generation_id}",
+                                   "latency_ms": latency, "error_type": "network", "generation_id": generation_id})
+            return {
+                "success": False,
+                "error_type": "network",
+                "error_message": "Cannot connect to video service"
+            }
         except Exception as e:
-            self.logger.error(f"Status check failed: {e}")
+            latency = round((time.time() - start_time) * 1000, 2)
+            self.logger.error(f"Video status check failed - unexpected error: {str(e)}",
+                            extra={"dependency": "video_service", "endpoint": f"/status/{generation_id}",
+                                   "latency_ms": latency, "error_type": "unexpected", "generation_id": generation_id, "error": str(e)})
             return {
                 "success": False,
                 "error_type": "network",
