@@ -37,13 +37,27 @@ The Core Integrator is a FastAPI service that orchestrates requests between Fina
 
 ### Required Environment Variables
 - `DB_PATH`: Path to SQLite database file (default: `data/context.db`)
-- `INTEGRATOR_USE_NOOPUR`: Enable Noopur integration (`true`/`false`)
-- `NOOPUR_BASE_URL`: Noopur service URL (if enabled)
-- `NOOPUR_API_KEY`: API key for Noopur (if enabled)
-- `VIDEO_SERVICE_URL`: Video generation service URL
-- `VIDEO_SERVICE_TIMEOUT`: Timeout for video service calls (seconds)
-- `SSPL_ENABLED`: Enable SSPL security (`true`/`false`)
-- `LOG_LEVEL`: Logging level (`INFO`, `DEBUG`, etc.)
+- `INTEGRATOR_USE_NOOPUR`: Enable Noopur integration (`true`/`false`, default: `false`)
+- `NOOPUR_BASE_URL`: Noopur service URL (required if `INTEGRATOR_USE_NOOPUR=true`)
+- `NOOPUR_API_KEY`: API key for Noopur (required if `INTEGRATOR_USE_NOOPUR=true`)
+- `VIDEO_SERVICE_URL`: Video generation service URL (required)
+- `VIDEO_SERVICE_TIMEOUT`: Timeout for video service calls in seconds (default: `300`)
+- `USE_MONGODB`: Use MongoDB instead of SQLite (`true`/`false`, default: `false`)
+- `MONGODB_CONNECTION_STRING`: MongoDB connection string (required if `USE_MONGODB=true`)
+- `MONGODB_DATABASE_NAME`: MongoDB database name (default: `core_integrator`)
+- `SSPL_ENABLED`: Enable SSPL security validation (`true`/`false`, default: `false`)
+- `SSPL_ALLOW_DRIFT_SECONDS`: Allowed timestamp drift for SSPL (default: `300`)
+- `LOG_LEVEL`: Logging level (`INFO`, `DEBUG`, etc., default: `INFO`)
+
+### Optional Environment Variables
+- `NONCE_DB_PATH`: Path to nonce store database (default: `db/nonce_store.db`)
+- `CREATORCORE_BASE_URL`: CreatorCore service URL (default: `http://localhost:5002`)
+- `CREATORCORE_API_KEY`: API key for CreatorCore
+- `FLASK_ENV`: Environment mode (default: `development`)
+- `FLASK_DEBUG`: Enable debug mode (`true`/`false`, default: `false`)
+- `REQUEST_TIMEOUT`: Request timeout in seconds (default: `30`)
+- `MAX_RETRIES`: Maximum retry attempts (default: `3`)
+- `CONNECTION_POOL_SIZE`: Connection pool size (default: `10`)
 
 ### Running Locally
 ```bash

@@ -1,4 +1,4 @@
-# Core Integrator Dockerfile for Demo Deployment
+# Core Integrator Dockerfile for Production Deployment
 FROM python:3.11-slim
 
 # Set working directory
@@ -19,7 +19,7 @@ RUN pip install --no-cache-dir -r requirements.txt
 COPY . .
 
 # Create necessary directories
-RUN mkdir -p data logs
+RUN mkdir -p data
 
 # Set environment variables
 ENV PYTHONPATH=/app
@@ -32,12 +32,5 @@ EXPOSE 8001
 HEALTHCHECK --interval=30s --timeout=10s --start-period=5s --retries=3 \
     CMD curl -f http://localhost:8001/system/health || exit 1
 
-# Default command
-CMD ["python", "main.py"]
-
-# Health check
-HEALTHCHECK --interval=30s --timeout=10s --start-period=5s --retries=3 \
-    CMD curl -f http://localhost:5002/system/health || exit 1
-
-# Default command
-CMD ["python", "main.py"]
+# Run with production ASGI server
+CMD ["uvicorn", "main:app", "--host", "0.0.0.0", "--port", "8001"]

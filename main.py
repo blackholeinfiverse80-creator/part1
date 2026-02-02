@@ -2,6 +2,7 @@ from fastapi import FastAPI, HTTPException, Depends, Request
 from typing import List, Dict, Any, Optional
 import os
 import sqlite3
+import logging
 from pathlib import Path
 from src.core.models import CoreRequest, CoreResponse
 from src.core.feedback_models import FeedbackRequest
@@ -13,6 +14,10 @@ import asyncio
 
 # Validate configuration on startup
 validate_config()
+
+# Log startup summary
+config_summary = get_config_summary()
+logging.info("Core Integrator startup", extra={"config_summary": config_summary})
 
 # Optional SSPL - can be disabled for testing
 SSPL_ENABLED = os.getenv("SSPL_ENABLED", "false").lower() in ("true", "1", "yes")
@@ -310,4 +315,5 @@ async def system_logs_latest(limit: int = 50):
 
 if __name__ == "__main__":
     import uvicorn
-    uvicorn.run(app, host="0.0.0.0", port=8001)
+    port = int(os.environ.get("PORT", 8001))
+    uvicorn.run(app, host="0.0.0.0", port=port)
