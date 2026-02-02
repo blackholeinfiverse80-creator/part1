@@ -183,13 +183,13 @@ async def system_health():
                 "noopur": noopur_status,
                 "video_service": video_service_status
             },
-            "timestamp": __import__('datetime').datetime.utcnow().isoformat() + 'Z'
+            "timestamp": __import__('datetime').datetime.now(__import__('datetime').timezone.utc).isoformat()
         }
     except Exception as e:
         return {
             "status": "down",
             "error": str(e),
-            "timestamp": __import__('datetime').datetime.utcnow().isoformat() + 'Z'
+            "timestamp": __import__('datetime').datetime.now(__import__('datetime').timezone.utc).isoformat()
         }
 
 @app.get("/system/diagnostics")
@@ -234,12 +234,12 @@ async def system_diagnostics():
                 "noopur_integration": config["noopur_enabled"],
                 "mongodb_enabled": config["db_mode"] == "mongodb"
             },
-            "timestamp": __import__('datetime').datetime.utcnow().isoformat() + 'Z'
+            "timestamp": __import__('datetime').datetime.now(__import__('datetime').timezone.utc).isoformat()
         }
     except Exception as e:
         return {
             "error": str(e),
-            "timestamp": __import__('datetime').datetime.utcnow().isoformat() + 'Z'
+            "timestamp": __import__('datetime').datetime.now(__import__('datetime').timezone.utc).isoformat()
         }
 
 @app.post("/feedback")
