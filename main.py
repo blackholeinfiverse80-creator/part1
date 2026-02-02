@@ -158,12 +158,13 @@ async def system_health():
                 noopur_status = "down"
 
         video_service_status = "disabled"
-        try:
-            # Check video service health
-            video_health = gateway.video_bridge_client.generate_video("test")
-            video_service_status = "up" if not video_health.get("fallback_used", True) else "down"
-        except Exception:
-            video_service_status = "down"
+        if not os.getenv("DISABLE_VIDEO_SERVICE", "false").lower() in ("true", "1", "yes"):
+            try:
+                # Check video service health
+                video_health = gateway.video_bridge_client.generate_video("test")
+                video_service_status = "up" if not video_health.get("fallback_used", True) else "down"
+            except Exception:
+                video_service_status = "down"
 
         # Determine overall status
         dependencies = [database_status, gateway_status]
