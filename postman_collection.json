@@ -171,6 +171,48 @@
               "path": ["core"]
             }
           }
+        },
+        {
+          "name": "Example Math Module - Add",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"module\": \"example_math\",\n  \"intent\": \"process\",\n  \"user_id\": \"test_user\",\n  \"data\": {\n    \"operation\": \"add\",\n    \"numbers\": [10, 20, 30, 5]\n  }\n}"
+            },
+            "url": {
+              "raw": "{{base_url}}/core",
+              "host": ["{{base_url}}"],
+              "path": ["core"]
+            }
+          }
+        },
+        {
+          "name": "Example Validation Module - Email",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"module\": \"example_validation\",\n  \"intent\": \"process\",\n  \"user_id\": \"test_user\",\n  \"data\": {\n    \"validation_type\": \"email\",\n    \"value\": \"user@example.com\"\n  }\n}"
+            },
+            "url": {
+              "raw": "{{base_url}}/core",
+              "host": ["{{base_url}}"],
+              "path": ["core"]
+            }
+          }
         }
       ]
     },

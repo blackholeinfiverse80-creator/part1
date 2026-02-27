@@ -1,0 +1,189 @@
+{
+  "test_timestamp": "2026-02-27T15:39:38.381299",
+  "test_description": "Module determinism and failure testing",
+  "modules": {
+    "example_math": {
+      "determinism_tests": {
+        "input": {
+          "operation": "add",
+          "numbers": [
+            10,
+            20,
+            30
+          ]
+        },
+        "runs": [
+          {
+            "status": "success",
+            "message": "Mathematical add completed successfully",
+            "result": {
+              "operation": "add",
+              "input_numbers": [
+                10,
+                20,
+                30
+              ],
+              "result": 60.0
+            }
+          },
+          {
+            "status": "success",
+            "message": "Mathematical add completed successfully",
+            "result": {
+              "operation": "add",
+              "input_numbers": [
+                10,
+                20,
+                30
+              ],
+              "result": 60.0
+            }
+          },
+          {
+            "status": "success",
+            "message": "Mathematical add completed successfully",
+            "result": {
+              "operation": "add",
+              "input_numbers": [
+                10,
+                20,
+                30
+              ],
+              "result": 60.0
+            }
+          }
+        ],
+        "is_deterministic": true,
+        "passed": true
+      },
+      "failure_tests": {
+        "input": {
+          "operation": "invalid_op",
+          "numbers": [
+            1,
+            2,
+            3
+          ]
+        },
+        "result": {
+          "status": "error",
+          "message": "Unsupported operation: invalid_op",
+          "result": {}
+        },
+        "is_safe_failure": true,
+        "passed": true
+      }
+    },
+    "example_validation": {
+      "determinism_tests": {
+        "input": {
+          "validation_type": "email",
+          "value": "test@example.com"
+        },
+        "runs": [
+          {
+            "status": "success",
+            "message": "Validation email completed successfully",
+            "result": {
+              "validation_type": "email",
+              "value": "test@example.com",
+              "is_valid": true,
+              "details": {
+                "pattern": "email_format"
+              }
+            }
+          },
+          {
+            "status": "success",
+            "message": "Validation email completed successfully",
+            "result": {
+              "validation_type": "email",
+              "value": "test@example.com",
+              "is_valid": true,
+              "details": {
+                "pattern": "email_format"
+              }
+            }
+          },
+          {
+            "status": "success",
+            "message": "Validation email completed successfully",
+            "result": {
+              "validation_type": "email",
+              "value": "test@example.com",
+              "is_valid": true,
+              "details": {
+                "pattern": "email_format"
+              }
+            }
+          }
+        ],
+        "is_deterministic": true,
+        "passed": true
+      },
+      "failure_tests": {
+        "input": {
+          "validation_type": "invalid_type",
+          "value": "test"
+        },
+        "result": {
+          "status": "error",
+          "message": "Unsupported validation type: invalid_type",
+          "result": {}
+        },
+        "is_safe_failure": true,
+        "passed": true
+      }
+    },
+    "sample_text": {
+      "determinism_tests": {
+        "input": {
+          "input_text": "Hello world test message"
+        },
+        "runs": [
+          {
+            "status": "success",
+            "message": "Text processed successfully",
+            "result": {
+              "word_count": 4
+            }
+          },
+          {
+            "status": "success",
+            "message": "Text processed successfully",
+            "result": {
+              "word_count": 4
+            }
+          },
+          {
+            "status": "success",
+            "message": "Text processed successfully",
+            "result": {
+              "word_count": 4
+            }
+          }
+        ],
+        "is_deterministic": true,
+        "passed": true
+      },
+      "failure_tests": {
+        "input": {},
+        "result": {
+          "status": "success",
+          "message": "Text processed successfully",
+          "result": {
+            "word_count": 0
+          }
+        },
+        "is_safe_failure": false,
+        "passed": false
+      }
+    }
+  },
+  "summary": {
+    "total_modules": 3,
+    "all_deterministic": true,
+    "all_safe_failures": false,
+    "overall_passed": false
+  }
+}

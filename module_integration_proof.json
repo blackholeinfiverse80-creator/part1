@@ -1,0 +1,70 @@
+{
+  "test_timestamp": "2026-02-27T15:38:15.871105",
+  "direct_module_tests": {
+    "example_math": {
+      "add_operation": {
+        "status": "success",
+        "message": "Mathematical add completed successfully",
+        "result": {
+          "operation": "add",
+          "input_numbers": [
+            10,
+            20,
+            30
+          ],
+          "result": 60.0
+        }
+      },
+      "metadata": {
+        "name": "example_math",
+        "version": "1.0.0",
+        "description": "Mathematical operations module",
+        "supported_operations": [
+          "add",
+          "multiply",
+          "average",
+          "max",
+          "min"
+        ]
+      }
+    },
+    "example_validation": {
+      "valid_email": {
+        "status": "success",
+        "message": "Validation email completed successfully",
+        "result": {
+          "validation_type": "email",
+          "value": "test@example.com",
+          "is_valid": true,
+          "details": {
+            "pattern": "email_format"
+          }
+        }
+      },
+      "invalid_email": {
+        "status": "success",
+        "message": "Validation email completed successfully",
+        "result": {
+          "validation_type": "email",
+          "value": "invalid-email",
+          "is_valid": false,
+          "details": {
+            "pattern": "email_format"
+          }
+        }
+      },
+      "metadata": {
+        "name": "example_validation",
+        "version": "1.0.0",
+        "description": "Data validation module",
+        "supported_validations": [
+          "email",
+          "phone",
+          "url",
+          "length",
+          "numeric"
+        ]
+      }
+    }
+  }
+}
