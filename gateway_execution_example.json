@@ -1,0 +1,23 @@
+{
+  "status": "success",
+  "message": "Text processed successfully",
+  "result": {
+    "word_count": 0
+  },
+  "execution_envelope": {
+    "execution_id": "exec_f03db2e9a5d1425e",
+    "module_id": "sample_text",
+    "product_id": "core_integrator",
+    "schema_version": "1.0.0",
+    "input_hash": "f5ea7ac2b7c908a9564cf8a72e28493457bbd5415de21a66cdb1b6493f1b49df",
+    "output_hash": "8ff5d7dbfe6171a4206b1011744c6fc4abd2753bbac3e5bec883fd69d8b4689e",
+    "truth_classification_level": "unclassified",
+    "parent_execution_id": null,
+    "timestamp_utc": "2026-03-12T08:29:26.213466+00:00",
+    "intent": "generate",
+    "user_id": "discipline_test_user",
+    "semantic_hash": "1b262831a6a4ce56cbb2b17b9c3c060be000d47c9314efcc818b2ff41641d031",
+    "execution_duration_ms": 15.789508819580078,
+    "status": "success"
+  }
+}
